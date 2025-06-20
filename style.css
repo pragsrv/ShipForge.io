@@ -1,0 +1,21 @@
+body {
+  margin: 0;
+  background: #001;
+  color: white;
+  font-family: sans-serif;
+  overflow: hidden;
+}
+
+#ui {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: #003;
+}
