@@ -50,13 +50,22 @@ function createStars() {
 const stars = createStars();
 
 // Event listeners
+window.addEventListener("blur", () => {
+    keys = {};
+});
+
 document.addEventListener("keydown", e => {
-    keys[e.key] = true;
+    keys[e.code] = true;
     
     // Toggle build mode
     if (e.key === "b" && gameRunning) {
         buildMode = !buildMode;
         document.getElementById("buildModeIndicator").style.display = buildMode ? "block" : "none";
+        if (!buildMode) {
+            // Reset fireCooldown so player can shoot immediately after building
+            player.fireCooldown = 0;
+            // Do NOT clear space key state or call player.fire() here.
+        }
     }
     
     // Activate shield
@@ -65,7 +74,7 @@ document.addEventListener("keydown", e => {
     }
 });
 
-document.addEventListener("keyup", e => keys[e.key] = false);
+document.addEventListener("keyup", e => keys[e.code] = false);
 
 // Module type selection
 document.querySelectorAll(".moduleType").forEach(el => {
@@ -208,11 +217,17 @@ class Ship {
         this.x = Math.max(0, Math.min(WIDTH, this.x));
         this.y = Math.max(0, Math.min(HEIGHT, this.y));
 
-        if (this.fireCooldown > 0) this.fireCooldown--;
-        if ((this.isPlayer && keys[" "] && this.fireCooldown === 0 && powerLevel > 5) || 
+        // --- FIX: Always decrement fireCooldown as integer ---
+        if (this.fireCooldown > 0) {
+            this.fireCooldown = Math.max(0, Math.floor(this.fireCooldown - 1));
+        }
+        if ((this.isPlayer && keys["Space"] && this.fireCooldown === 0 && powerLevel > 5) || 
             (!this.isPlayer && this.fireCooldown === 0)) {
             this.fire();
             this.fireCooldown = this.isPlayer ? 15 : 30 + Math.random() * 30;
+            if (!this.isPlayer) {
+                this.fireCooldown = Math.floor(this.fireCooldown);
+            }
         }
     }
 
@@ -252,18 +267,38 @@ class Ship {
 
     fire() {
         const size = this.isPlayer ? moduleSize : enemyModuleSize;
-        
         for (let key in this.modules) {
             if (this.modules[key].type === "gun") {
                 const [gx, gy] = key.split(",").map(Number);
+                let vx = 0, vy = 0;
+                if (this.isPlayer) {
+                    // Direction: from core (0,0) to (gx,gy)
+                    if (gx === 0 && gy === 0) {
+                        vx = 0;
+                        vy = -8; // Default up
+                    } else {
+                        const len = Math.hypot(gx, gy);
+                        vx = (gx / len) * 8;
+                        vy = (gy / len) * 8;
+                    }
+                } else {
+                    // Aim at player
+                    const px = this.x + gx * size;
+                    const py = this.y + gy * size;
+                    const dx = player.x - px;
+                    const dy = player.y - py;
+                    const dist = Math.hypot(dx, dy);
+                    const speed = 6;
+                    vx = (dx / dist) * speed;
+                    vy = (dy / dist) * speed;
+                }
                 bullets.push(new Bullet(
                     this.x + gx * size,
                     this.y + gy * size,
-                    0, this.isPlayer ? -8 : 6, // Enemy bullets move downward
+                    vx, vy,
                     this,
-                    this.isPlayer ? 4 : 6 // Enemy bullets are larger
+                    this.isPlayer ? 4 : 6
                 ));
-                
                 if (!this.isPlayer) {
                     powerLevel -= 1;
                 }
@@ -417,85 +452,119 @@ player.modules["-1,0"] = new Module("engine");
 function spawnEnemy() {
     const side = Math.floor(Math.random() * 4);
     let x, y;
-    
     switch(side) {
-        case 0: // top
-            x = Math.random() * WIDTH;
-            y = -50;
-            break;
-        case 1: // right
-            x = WIDTH + 50;
-            y = Math.random() * HEIGHT;
-            break;
-        case 2: // bottom
-            x = Math.random() * WIDTH;
-            y = HEIGHT + 50;
-            break;
-        case 3: // left
-            x = -50;
-            y = Math.random() * HEIGHT;
-            break;
+        case 0: x = Math.random() * WIDTH; y = -50; break;
+        case 1: x = WIDTH + 50; y = Math.random() * HEIGHT; break;
+        case 2: x = Math.random() * WIDTH; y = HEIGHT + 50; break;
+        case 3: x = -50; y = Math.random() * HEIGHT; break;
     }
-    
     const e = new Ship(x, y);
     e.modules["0,0"] = new Module("core", true);
-    
-    // Random enemy configurations with more modules
+    // Advanced enemy configurations
     const config = Math.floor(Math.random() * 5);
     switch(config) {
-        case 0: // Basic
+        case 0: // Aggressive Basic
             e.modules["1,0"] = new Module("gun", true);
             e.modules["-1,0"] = new Module("engine", true);
+            e.modules["0,1"] = new Module("gun", true);
             break;
-        case 1: // Fast
+        case 1: // Fast Flanker
             e.modules["1,0"] = new Module("gun", true);
             e.modules["-1,0"] = new Module("engine", true);
             e.modules["-2,0"] = new Module("engine", true);
+            e.modules["0,1"] = new Module("engine", true);
             break;
-        case 2: // Tank
+        case 2: // Tanky
             e.modules["1,0"] = new Module("gun", true);
             e.modules["-1,0"] = new Module("armor", true);
             e.modules["0,1"] = new Module("armor", true);
             e.modules["0,-1"] = new Module("armor", true);
+            e.modules["1,1"] = new Module("shield", true);
             break;
-        case 3: // Gunner
+        case 3: // Gunner Burst
             e.modules["1,0"] = new Module("gun", true);
             e.modules["-1,0"] = new Module("gun", true);
             e.modules["0,1"] = new Module("gun", true);
+            e.modules["0,-1"] = new Module("engine", true);
             break;
-        case 4: // Balanced
+        case 4: // Advanced
             e.modules["1,0"] = new Module("gun", true);
             e.modules["-1,0"] = new Module("engine", true);
             e.modules["0,1"] = new Module("armor", true);
             e.modules["0,-1"] = new Module("shield", true);
+            e.modules["1,1"] = new Module("gun", true);
+            e.modules["-1,-1"] = new Module("engine", true);
             break;
     }
-    
+    // Increase stats for higher waves
+    e.extraAggression = Math.min(1 + wave * 0.1, 2.5);
+    e.extraFireRate = Math.max(0.5, 1.5 - wave * 0.05);
+    e.dodgeChance = Math.min(0.15 + wave * 0.01, 0.5);
+    e.maxSpeed = 2 + wave * 0.1;
     enemies.push(e);
 }
 
-// Enemy AI
+// Improved Enemy AI
 function updateEnemies() {
     for (let e of enemies) {
         const dx = player.x - e.x;
         const dy = player.y - e.y;
         const dist = Math.hypot(dx, dy);
-        
-        // More aggressive movement
-        if (dist > 300) {
-            e.vx += 0.05 * Math.sign(dx);
-            e.vy += 0.05 * Math.sign(dy);
-        } else if (dist < 150) {
-            e.vx -= 0.03 * Math.sign(dx);
-            e.vy -= 0.03 * Math.sign(dy);
+        // Dodge incoming bullets
+        let dodge = false;
+        for (let b of bullets) {
+            if (b.owner.isPlayer) {
+                const bDist = Math.hypot(b.x - e.x, b.y - e.y);
+                if (bDist < 80 && Math.random() < e.dodgeChance) {
+                    // Move perpendicular to bullet
+                    const perp = Math.sign(b.vx || 1);
+                    e.vx += perp * 1.5 * e.extraAggression;
+                    dodge = true;
+                    break;
+                }
+            }
         }
-        
-        // More frequent firing
-        if (dist < 500 && e.fireCooldown === 0) {
-            e.fire();
-            e.fireCooldown = 30 + Math.random() * 30;
+        // Aggressive movement: flank and close in
+        if (!dodge) {
+            if (dist > 120) {
+                e.vx += 0.08 * Math.sign(dx) * e.extraAggression;
+                e.vy += 0.08 * Math.sign(dy) * e.extraAggression;
+            } else if (dist < 60) {
+                e.vx -= 0.05 * Math.sign(dx) * e.extraAggression;
+                e.vy -= 0.05 * Math.sign(dy) * e.extraAggression;
+            }
         }
-        
+        // Clamp speed
+        const speed = Math.hypot(e.vx, e.vy);
+        if (speed > e.maxSpeed) {
+            e.vx *= e.maxSpeed / speed;
+            e.vy *= e.maxSpeed / speed;
+        }
+        // --- FIX: Synchronous burst fire logic ---
+        if (!e.burst) e.burst = 0;
+        if (dist < 350 && Math.floor(e.fireCooldown) <= 0) {
+            if (dist < 120) {
+                e.burst = 3; // burst shots
+                e.burstInterval = 0;
+            } else {
+                e.burst = 1;
+                e.burstInterval = 0;
+            }
+        }
+        if (e.burst > 0) {
+            if (!e.burstInterval || Math.floor(e.burstInterval) <= 0) {
+                e.fire();
+                e.burst--;
+                e.burstInterval = 5; // frames between burst shots
+                if (e.burst === 0) {
+                    e.fireCooldown = Math.floor((dist < 120 ? 10 : 30) * e.extraFireRate);
+                }
+            } else {
+                e.burstInterval = Math.max(0, Math.floor(e.burstInterval - 1));
+            }
+        } else if (e.fireCooldown > 0) {
+            e.fireCooldown = Math.max(0, Math.floor(e.fireCooldown - 1));
+        }
         e.update();
         e.draw();
     }
@@ -529,15 +598,14 @@ function checkCollisions() {
                     mod.hp--;
                     createImpactParticles(b.x, b.y);
                     b.life = 0;
-                    
                     if (mod.hp <= 0) {
                         if (mod.type !== "core") {
-                            // Drop scrap instead of modules
                             droppedModules.push(new Scrap(x, y, mod.getCost() / 2));
                             delete ship.modules[key];
                             
                             if (ship.isPlayer) {
                                 health -= 10;
+                                ensurePlayerHasGun(); // <-- always keep at least one gun
                             }
                         } else {
                             if (ship === player) {
@@ -579,6 +647,24 @@ function checkCollisions() {
             scrap += d.amount;
             d.life = 0;
             createScrapCollectParticles(d.x, d.y, d.amount);
+        }
+    }
+}
+
+// --- Ensure player always has at least one gun module ---
+function ensurePlayerHasGun() {
+    const hasGun = Object.values(player.modules).some(m => m.type === "gun");
+    if (!hasGun) {
+        // Place a gun at the first available adjacent slot
+        const possible = [
+            [1,0], [-1,0], [0,1], [0,-1], [1,1], [-1,-1], [1,-1], [-1,1]
+        ];
+        for (const [gx, gy] of possible) {
+            const key = `${gx},${gy}`;
+            if (!player.modules[key]) {
+                player.modules[key] = new Module("gun");
+                break;
+            }
         }
     }
 }
@@ -677,6 +763,15 @@ function resetGame() {
     document.getElementById("wave").textContent = wave;
 }
 
+// --- Build mode mouse tracking ---
+let buildMouse = { x: 0, y: 0 };
+canvas.addEventListener("mousemove", e => {
+    if (!buildMode) return;
+    const rect = canvas.getBoundingClientRect();
+    buildMouse.x = e.clientX - rect.left;
+    buildMouse.y = e.clientY - rect.top;
+});
+
 // Build mode placement
 function handleBuildMode() {
     if (!buildMode) return;
@@ -684,20 +779,35 @@ function handleBuildMode() {
     // Draw grid
     ctx.strokeStyle = "rgba(100, 100, 255, 0.3)";
     ctx.lineWidth = 1;
-    
+
+    // --- Calculate hovered cell ---
+    let hoveredCell = null;
+    const relX = buildMouse.x - player.x;
+    const relY = buildMouse.y - player.y;
+    const gridGX = Math.round(relX / moduleSize);
+    const gridGY = Math.round(relY / moduleSize);
+    if (gridGX >= -2 && gridGX <= 2 && gridGY >= -2 && gridGY <= 2) {
+        hoveredCell = { x: gridGX, y: gridGY };
+    }
+
     for (let x = -2; x <= 2; x++) {
         for (let y = -2; y <= 2; y++) {
-            const gridX = player.x + x * moduleSize - moduleSize/2;
-            const gridY = player.y + y * moduleSize - moduleSize/2;
-            
-            ctx.strokeRect(gridX, gridY, moduleSize, moduleSize);
-            
-            // Highlight available spots
+            const gridX = player.x + x * moduleSize;
+            const gridY = player.y + y * moduleSize;
             const key = `${x},${y}`;
+            // Draw grid cell
+            ctx.strokeRect(gridX, gridY, moduleSize, moduleSize);
+
+            // Highlight available spots
             if (!player.modules[key]) {
-                ctx.fillStyle = "rgba(0, 200, 255, 0.2)";
-                ctx.fillRect(gridX, gridY, moduleSize, moduleSize);
-                
+                // Highlight hovered cell
+                if (hoveredCell && hoveredCell.x === x && hoveredCell.y === y) {
+                    ctx.fillStyle = "rgba(0, 255, 255, 0.35)";
+                    ctx.fillRect(gridX, gridY, moduleSize, moduleSize);
+                } else {
+                    ctx.fillStyle = "rgba(0, 200, 255, 0.2)";
+                    ctx.fillRect(gridX, gridY, moduleSize, moduleSize);
+                }
                 // Show cost
                 const cost = new Module(selectedModuleType).getCost();
                 ctx.fillStyle = scrap >= cost ? "#00ff00" : "#ff0000";
@@ -713,48 +823,38 @@ function handleBuildMode() {
 // Mouse interaction for build mode
 canvas.addEventListener("click", e => {
     if (!buildMode || !gameRunning) return;
-    
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
-    for (let x = -2; x <= 2; x++) {
-        for (let y = -2; y <= 2; y++) {
-            const gridX = player.x + x * moduleSize;
-            const gridY = player.y + y * moduleSize;
-            const dist = Math.hypot(mouseX - gridX, mouseY - gridY);
-            
-            if (dist < moduleSize/2) {
-                const key = `${x},${y}`;
-                if (!player.modules[key]) {
-                    const module = new Module(selectedModuleType);
-                    const cost = module.getCost();
-                    
-                    if (scrap >= cost) {
-                        player.modules[key] = module;
-                        scrap -= cost;
-                        createModulePlaceParticles(gridX, gridY);
-                        return;
-                    }
-                }
-            }
+    // Snap to grid cell under mouse
+    const relX = mouseX - player.x;
+    const relY = mouseY - player.y;
+    const gridGX = Math.round(relX / moduleSize);
+    const gridGY = Math.round(relY / moduleSize);
+    if (gridGX < -2 || gridGX > 2 || gridGY < -2 || gridGY > 2) return;
+    const key = `${gridGX},${gridGY}`;
+    // Prevent building on core or any occupied slot
+    if (player.modules[key]) {
+        if (key === "0,0") {
+            alert("You cannot build on the ship's core.");
+        } else {
+            alert("That slot is already occupied.");
         }
+        return;
+    }
+    const module = new Module(selectedModuleType);
+    const cost = module.getCost();
+    const gridX = player.x + gridGX * moduleSize;
+    const gridY = player.y + gridGY * moduleSize;
+    if (scrap >= cost) {
+        player.modules[key] = module;
+        scrap -= cost;
+        createModulePlaceParticles(gridX, gridY);
+        player.fireCooldown = 0;
+        // Removed: keys["Space"] = false; // Do not clear space key state after build
+        return;
     }
 });
-
-function createModulePlaceParticles(x, y) {
-    for (let i = 0; i < 20; i++) {
-        particles.push({
-            x: x,
-            y: y,
-            vx: (Math.random() - 0.5) * 3,
-            vy: (Math.random() - 0.5) * 3,
-            size: Math.random() * 3 + 1,
-            color: "#00ff00",
-            life: Math.random() * 20 + 10
-        });
-    }
-}
 
 // Draw star background
 function drawStars() {
@@ -778,8 +878,64 @@ function gameLoop(timestamp) {
     
     // Draw background
     drawStars();
-    
+
+    // --- DEBUG OVERLAY: Show firing state ---
+    ctx.save();
+    ctx.font = "14px monospace";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.globalAlpha = 0.8;
+    ctx.fillText(`fireCooldown: ${player.fireCooldown}`, 10, 10);
+    ctx.fillText(`powerLevel: ${Math.floor(powerLevel)}`, 10, 28);
+    ctx.fillText(`keys[Space]: ${!!keys["Space"]}`, 10, 46);
+    ctx.fillText(`buildMode: ${buildMode}`, 10, 64);
+    ctx.restore();
+
     if (gameRunning) {
+        // If build mode is active, pause all game updates except build UI
+        if (buildMode) {
+            // Draw player ship and modules (so user can see what they're building)
+            player.draw();
+            // Draw dropped scrap for context
+            droppedModules.forEach(d => d.draw());
+            // Draw explosions and particles for visual continuity
+            explosions.forEach(e => {
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+                const gradient = ctx.createRadialGradient(
+                    e.x, e.y, 0,
+                    e.x, e.y, e.size
+                );
+                gradient.addColorStop(0, `rgba(255, 200, 0, ${e.life/60})`);
+                gradient.addColorStop(1, `rgba(255, 50, 0, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            });
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life / 30;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            });
+            // Draw build mode grid and handle placement
+            handleBuildMode();
+            // UI updates
+            document.getElementById("score").textContent = score;
+            document.getElementById("scrap").textContent = scrap;
+            document.getElementById("powerValue").textContent = Math.floor(powerLevel) + "%";
+            document.getElementById("powerFill").style.width = powerLevel + "%";
+            document.getElementById("healthValue").textContent = Math.floor(health) + "%";
+            document.getElementById("healthFill").style.width = health + "%";
+            document.getElementById("shieldValue").textContent = Math.floor(shieldPower) + "%";
+            document.getElementById("shieldFill").style.width = shieldPower + "%";
+            // Do not update player, enemies, bullets, collisions, waves, etc.
+            requestAnimationFrame(gameLoop);
+            return;
+        }
+        
         // Update thruster particles timer
         if (thrusterParticlesTimer > 0) thrusterParticlesTimer--;
         
