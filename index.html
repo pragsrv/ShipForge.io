@@ -1,17 +1,201 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ShipForge.io</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Ship Builder - Enhanced</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="ui">
-    <h1>ShipForge.io</h1>
-    <p>Score: <span id="score">0</span></p>
-  </div>
-  <canvas id="gameCanvas"></canvas>
-  <script src="game.js"></script>
+    <div id="gameWrapper">
+        <div id="gameContainer">
+            <div id="header">
+                <div id="gameTitle">SPACE SHIP BUILDER</div>
+                <div id="stats">
+                    <div class="statBox">
+                        <div class="statLabel">SCORE</div>
+                        <div id="score" class="statValue">0</div>
+                    </div>
+                    <div class="statBox">
+                        <div class="statLabel">SCRAP</div>
+                        <div id="scrap" class="statValue">100</div>
+                    </div>
+                    <div class="statBox">
+                        <div class="statLabel">WAVE</div>
+                        <div id="wave" class="statValue">1</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="mainContent">
+                <div id="sidebar">
+                    <div class="panel">
+                        <div class="panelTitle">SHIP MODULES</div>
+                        <div id="moduleTypes">
+                            <div class="moduleType" data-type="core">
+                                <div class="modulePreview" style="background: linear-gradient(135deg, #00f7ff, #0077ff);"></div>
+                                <div class="moduleInfo">
+                                    <div class="moduleName">Core</div>
+                                    <div class="moduleDesc">Required for survival</div>
+                                </div>
+                            </div>
+                            <div class="moduleType" data-type="engine">
+                                <div class="modulePreview" style="background: linear-gradient(135deg, #00ff9d, #00b36b);"></div>
+                                <div class="moduleInfo">
+                                    <div class="moduleName">Engine</div>
+                                    <div class="moduleDesc">+30% speed</div>
+                                </div>
+                            </div>
+                            <div class="moduleType selected" data-type="gun">
+                                <div class="modulePreview" style="background: linear-gradient(135deg, #ff3366, #ff0066);"></div>
+                                <div class="moduleInfo">
+                                    <div class="moduleName">Laser Gun</div>
+                                    <div class="moduleDesc">Basic weapon (5 scrap)</div>
+                                </div>
+                            </div>
+                            <div class="moduleType" data-type="armor">
+                                <div class="modulePreview" style="background: linear-gradient(135deg, #888888, #555555);"></div>
+                                <div class="moduleInfo">
+                                    <div class="moduleName">Armor</div>
+                                    <div class="moduleDesc">+2 health (10 scrap)</div>
+                                </div>
+                            </div>
+                            <div class="moduleType" data-type="shield">
+                                <div class="modulePreview" style="background: linear-gradient(135deg, #9d4edd, #5a189a);"></div>
+                                <div class="moduleInfo">
+                                    <div class="moduleName">Shield</div>
+                                    <div class="moduleDesc">Energy barrier (15 scrap)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel">
+                        <div class="panelTitle">CONTROLS</div>
+                        <div id="controls">
+                            <div class="controlItem">Movement <span class="key">←</span><span class="key">→</span><span class="key">↑</span><span class="key">↓</span></div>
+                            <div class="controlItem">Fire <span class="key">SPACE</span></div>
+                            <div class="controlItem">Build Mode <span class="key">B</span></div>
+                            <div class="controlItem">Shield <span class="key">S</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel">
+                        <div class="panelTitle">OBJECTIVES</div>
+                        <div id="objectives">
+                            <p>• Build your ship with collected scrap</p>
+                            <p>• Destroy enemies to earn more scrap</p>
+                            <p>• Survive increasingly difficult waves</p>
+                            <p>• Protect your core module at all costs</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <canvas id="gameCanvas"></canvas>
+            </div>
+        </div>
+        
+        <div id="hud">
+            <div class="hud-item">
+                <div class="hud-label">POWER</div>
+                <div id="powerValue" class="hud-value">100%</div>
+                <div id="powerBar" class="hud-bar">
+                    <div id="powerFill" class="hud-fill" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">HEALTH</div>
+                <div id="healthValue" class="hud-value">100%</div>
+                <div id="healthBar" class="hud-bar">
+                    <div id="healthFill" class="hud-fill" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">SHIELD</div>
+                <div id="shieldValue" class="hud-value">100%</div>
+                <div id="shieldBar" class="hud-bar">
+                    <div id="shieldFill" class="hud-fill" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="tutorial">
+            <div id="tutorial-dragbar" style="cursor: move; background:rgba(0,0,0,0.2);padding:4px 0 4px 10px;font-weight:600;border-radius:8px 8px 0 0;user-select:none;">How to Play</div>
+            <div id="tutorial-content">
+                <h3 style="display:none;">How to Play:</h3>
+                <ul>
+                    <li>Move with <span class="highlight">Arrow Keys</span> and fire with <span class="highlight">SPACE</span></li>
+                    <li>Press <span class="highlight">B</span> to enter build mode</li>
+                    <li>Collect <span class="highlight">scrap</span> from destroyed enemies</li>
+                    <li>Build modules using scrap in build mode</li>
+                    <li>Activate shield with <span class="highlight">S</span> when available</li>
+                    <li>Survive as long as possible!</li>
+                </ul>
+            </div>
+            <div id="tutorial-resize" style="position:absolute;right:2px;bottom:2px;width:16px;height:16px;cursor:se-resize;z-index:11;"></div>
+        </div>
+        
+        <div id="buildModeIndicator">BUILD MODE</div>
+        
+        <div id="gameOver">
+            <h1>MISSION FAILED</h1>
+            <div id="finalScore">Final Score: 0</div>
+            <button id="restartButton">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+    <script>
+    // Draggable and resizable tutorial
+    (function() {
+        const tutorial = document.getElementById('tutorial');
+        const dragbar = document.getElementById('tutorial-dragbar');
+        const resize = document.getElementById('tutorial-resize');
+        let offsetX, offsetY, isDragging = false, isResizing = false;
+        // Drag
+        dragbar.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            offsetX = e.clientX - tutorial.offsetLeft;
+            offsetY = e.clientY - tutorial.offsetTop;
+            document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (isDragging) {
+                let x = e.clientX - offsetX;
+                let y = e.clientY - offsetY;
+                x = Math.max(0, Math.min(window.innerWidth - tutorial.offsetWidth, x));
+                y = Math.max(0, Math.min(window.innerHeight - tutorial.offsetHeight, y));
+                tutorial.style.left = x + 'px';
+                tutorial.style.top = y + 'px';
+                tutorial.style.right = '';
+                tutorial.style.bottom = '';
+                tutorial.style.position = 'absolute';
+            }
+            if (isResizing) {
+                let w = Math.max(200, e.clientX - tutorial.offsetLeft);
+                let h = Math.max(80, e.clientY - tutorial.offsetTop);
+                tutorial.style.width = w + 'px';
+                tutorial.style.height = h + 'px';
+            }
+        });
+        document.addEventListener('mouseup', function() {
+            isDragging = false;
+            isResizing = false;
+            document.body.style.userSelect = '';
+        });
+        // Resize
+        resize.addEventListener('mousedown', function(e) {
+            isResizing = true;
+            e.stopPropagation();
+            document.body.style.userSelect = 'none';
+        });
+        // Set initial position if not already set
+        window.addEventListener('DOMContentLoaded', function() {
+            if (!tutorial.style.left) tutorial.style.left = '20px';
+            if (!tutorial.style.top) tutorial.style.top = '80px';
+            tutorial.style.position = 'absolute';
+        });
+    })();
+    </script>
 </body>
 </html>
