@@ -1,7 +1,11 @@
 # ShipForge.io - Space Ship Builder Game
 
 ShipForge.io is a browser-based space ship building and survival game. Build your ship, fight off waves of enemies, and survive as long as possible!
+---
 > AI was used to build parts of this project
+
+> The Ship animations and enemey approaching technique was develope using AI
+---
 ## Features
 - Modular ship building with drag-and-drop modules
 - Collect scrap from destroyed enemies to build new modules
